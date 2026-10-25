@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>第七課〈為生命找出口〉- 逆風生命冒險 RPG</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #1e3a8a;
+      --primary-light: #3b82f6;
+      --warm-amber: #f59e0b;
+      --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+      --card-bg: rgba(255, 255, 255, 0.96);
+      --text-main: #0f172a;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      font-family: 'Noto Sans TC', sans-serif;
+      background: var(--bg-gradient);
+      min-height: 100vh;
+      color: #334155;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    #game-stage {
+      width: 100%;
+      max-width: 980px;
+      height: 680px;
+      background: #000;
+      border-radius: 28px;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.15);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* 頂部 HUD (抬頭顯示器) */
+    .hud {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 64px;
+      background: linear-gradient(180deg, rgba(15, 23, 42, 0.9) 0%, rgba(15, 23, 42, 0) 100%);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 28px;
+      z-index: 50;
+      color: white;
+      font-weight: 700;
+    }
+
+    .hud-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 1.1rem;
+      letter-spacing: 0.5px;
+    }
+
+    .hud-badge {
+      background: rgba(59, 130, 246, 0.3);
+      border: 1px solid rgba(147, 197, 253, 0.5);
+      padding: 4px 14px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      color: #93c5fd;
+    }
+
+    .hud-stats {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+
+    .stat-pill {
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 6px 16px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.95rem;
+    }
+
+    /* 場景視角層 (動態切換背景) */
+    .scene-viewport {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      background-size: cover;
+      background-position: center;
+      transition: background-image 0.6s ease-in-out, filter 0.4s;
+    }
+
+    /* 人物立繪容器 */
+    .character-stage {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 480px;
+      pointer-events: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      padding: 0 60px;
+      z-index: 10;
+    }
+
+    .char-avatar {
+      position: relative;
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      transform-origin: bottom center;
+      filter: drop-shadow(0 15px 25px rgba(0, 0, 0, 0.6));
+    }
+
+    .char-avatar img {
+      height: 380px;
+      width: auto;
+      display: block;
+      border-radius: 20px;
+    }
+
+    /* 說話中的角色高亮跳動 */
+    .char-avatar.active {
+      transform: scale(1.05) translateY(-8px);
+      filter: drop-shadow(0 20px 30px rgba(59, 130, 246, 0.5));
+    }
+
+    .char-avatar.dimmed {
+      opacity: 0.55;
+      filter: grayscale(40%) brightness(0.7);
+      transform: scale(0.95);
+    }
+
+    .char-avatar.speaking-bounce {
+      animation: charSpeak 0.35s ease-in-out;
+    }
+
+    @keyframes charSpeak {
+      0%, 100% { transform: scale(1.05) translateY(-8px); }
+      50% { transform: scale(1.07) translateY(-14px); }
+    }
+
+    /* 角色名牌標籤 */
+    .char-nametag {
+      position: absolute;
+      top: -15px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: white;
+      font-weight: 800;
+      font-size: 0.9rem;
+      padding: 4px 16px;
+      border-radius: 20px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+      white-space: nowrap;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    /* 下方 AVG 冒險對話框（調整寬度與高度，固定靠左半邊，絕不遮擋右側底圖上的老師） */
+    .dialog-box {
+      position: absolute;
+      bottom: 20px;
+      left: 28px;
+      width: 580px;
+      max-width: calc(100% - 380px);
+      min-height: 170px;
+      background: rgba(15, 23, 42, 0.92);
+      backdrop-filter: blur(16px);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-radius: 24px;
+      padding: 20px 24px;
+      z-index: 40;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      color: white;
+      cursor: pointer;
+    }
+
+    .speaker-name {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: #38bdf8;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .dialog-text {
+      font-size: 1.15rem;
+      line-height: 1.65;
+      color: #f1f5f9;
+      font-weight: 500;
+      letter-spacing: 0.3px;
+      min-height: 60px;
+    }
+
+    .dialog-footer {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      margin-top: 10px;
+    }
+
+    .dialog-prompt {
+      font-size: 0.85rem;
+      color: #94a3b8;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 1; }
+    }
+
+    /* 互動抉擇與互動按鈕面板 (在對話框內彈出) */
+    .choice-panel {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-top: 14px;
+    }
+
+    .choice-btn {
+      background: rgba(30, 41, 59, 0.95);
+      border: 2px solid #3b82f6;
+      border-radius: 16px;
+      padding: 14px 18px;
+      color: white;
+      font-size: 1.05rem;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .choice-btn:hover {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      border-color: #60a5fa;
+      transform: translateY(-3px) scale(1.02);
+      box-shadow: 0 10px 20px rgba(37, 99, 235, 0.4);
+    }
+
+    .choice-btn .choice-key {
+      background: rgba(255, 255, 255, 0.2);
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      flex-shrink: 0;
+    }
+
+    /* 遊戲全屏轉場／結算遮罩 */
+    .overlay-screen {
+      position: absolute;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(12px);
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px;
+      text-align: center;
+      color: white;
+      animation: fadeIn 0.4s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.96); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .overlay-title {
+      font-size: 2.6rem;
+      font-weight: 900;
+      color: #fbbf24;
+      margin-bottom: 12px;
+      text-shadow: 0 4px 15px rgba(251, 191, 36, 0.3);
+    }
+
+    .overlay-desc {
+      font-size: 1.2rem;
+      color: #cbd5e1;
+      max-width: 600px;
+      line-height: 1.6;
+      margin-bottom: 28px;
+    }
+
+    .btn-action {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: white;
+      font-size: 1.3rem;
+      font-weight: 800;
+      padding: 16px 48px;
+      border-radius: 50px;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 10px 30px rgba(245, 158, 11, 0.4);
+      transition: all 0.2s;
+    }
+
+    .btn-action:hover {
+      transform: scale(1.06);
+      box-shadow: 0 15px 35px rgba(245, 158, 11, 0.5);
+    }
+
+    /* 視覺特效：逆風氣流粒子動態 */
+    .wind-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        -45deg,
+        rgba(255, 255, 255, 0.03) 0px,
+        rgba(255, 255, 255, 0.03) 2px,
+        transparent 2px,
+        transparent 8px
+      );
+      opacity: 0;
+      transition: opacity 0.5s;
+      z-index: 15;
+    }
+
+    .wind-active {
+      opacity: 0.6;
+      animation: windBlow 0.8s linear infinite;
+    }
+
+    @keyframes windBlow {
+      0% { transform: translateX(0) translateY(0); }
+      100% { transform: translateX(-50px) translateY(50px); }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="game-stage">
+    <!-- 頂端即時抬頭顯示器 -->
+    <div class="hud">
+      <div class="hud-title">
+        <span>📖 第七課《為生命找出口》</span>
+        <span class="hud-badge" id="hud-chapter">序章：心靈研究室</span>
+      </div>
+      <div class="hud-stats">
+        <div class="stat-pill">✨ 領悟值：<span id="stat-score" style="color:#fbbf24; font-weight:800;">0</span></div>
+        <div class="stat-pill">💖 生命韌性：<span id="stat-resilience" style="color:#f43f5e; font-weight:800;">100%</span></div>
+      </div>
+    </div>
+
+    <!-- 場景視角（動態更換背景） -->
+    <div class="scene-viewport" id="scene-bg" style="background-image: url('第七課_為生命找出口_簡報圖片/01.png');">
+      <div class="wind-overlay" id="wind-fx"></div>
+
+      <!-- 人物立繪對抗/互動層（移除額外疊加的老師立繪，維持底圖上的老師只有一位） -->
+      <div class="character-stage">
+        <!-- 左側：玩家／冒險學生 (小勇) -->
+        <div class="char-avatar" id="avatar-player" style="display:none;">
+          <div class="char-nametag">🎒 冒險學生・小勇</div>
+        </div>
+      </div>
+
+      <!-- 冒險對話框 -->
+      <div class="dialog-box" id="dialog-box" onclick="handleDialogClick()">
+        <div>
+          <div class="speaker-name" id="speaker-name">
+            <span>👩‍🏫 導讀老師</span>
+          </div>
+          <div class="dialog-text" id="dialog-text">
+            歡迎來到第七課〈為生命找出口〉的互動探險！我是你的引路導師。今天我們要一起走進劉俠筆下的生命故事，準備好出發了嗎？
+          </div>
+        </div>
+
+        <!-- 互動抉擇面板（需要玩家選擇時顯示） -->
+        <div class="choice-panel" id="choice-panel" style="display: none;"></div>
+
+        <div class="dialog-footer">
+          <span class="dialog-prompt" id="dialog-prompt">點擊對話框繼續 ▶</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 遊戲開場 / 結算全屏覆蓋層 -->
+    <div class="overlay-screen" id="overlay-screen">
+      <div style="font-size: 4.5rem; margin-bottom: 12px;">🦅 🌪️ 🕸️</div>
+      <h1 class="overlay-title">逆風生命探險隊：為生命找出口</h1>
+      <p class="overlay-desc">
+        這不只是一場問答，而是一段有血有肉的生命旅程。<br>
+        跟隨導師與小勇，面對峭壁強風、受損的蛛網，在人生的每個抉擇點，找到屬於你向上的出口！
+      </p>
+      <button class="btn-action" onclick="startGameStory()">
+        踏上生命冒險旅程 ⚔️
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // 遊戲劇本資料庫 (視覺小說劇情 + 人物切換 + 互動決策)
+    const storyScript = [
+      {
+        bg: "第七課_為生命找出口_簡報圖片/01.png",
+        chapter: "序章：逆風的祝福",
+        speaker: "👩‍🏫 導讀老師",
+        speakerId: "teacher",
+        text: "小勇，想像一下，如果今天你要去機場送行即將出國的好朋友，你會對他說什麼祝福的話呢？",
+        wind: false
+      },
+      {
+        bg: "第七課_為生命找出口_簡報圖片/01.png",
+        chapter: "序章：逆風的祝福",
+        speaker: "🎒 冒險學生・小勇",
+        speakerId: "player",
+        text: "老師，這太簡單了！當然是祝他『一路順風』呀，大家不都這樣說嗎？",
+        wind: false
+      },
+      {
+        bg: "第七課_為生命找出口_簡報圖片/02.png",
+        chapter: "第一幕：一路逆風",
+        speaker: "👩‍🏫 導讀老師",
+        speakerId: "teacher",
+        text: "很有趣對吧！但在課文裡，作者的朋友卻幽默地祝她：『一路逆風！』為什麼逆風反而是更珍貴的祝福呢？小勇，你覺得飛機起飛時，真正需要的是什麼？",
+        wind: true,
+        choices: [
+          {
+            key: "A",
+            text: "需要順風推一把，才能毫不費力地衝上天空！",
+            scoreDelta: -5,
+            resilienceDelta: -5,
+            feedback: "順風雖然省力，但缺乏向上抬升的強大氣流阻力，容易顛簸不穩喔！"
+          },
+          {
+            key: "B",
+            text: "必須迎著逆風前進！風的阻力轉化成強大升力，飛得又平又穩！",
+            scoreDelta: 20,
+            resilienceDelta: 10,
+            feedback: "答對了！逆風的阻力正是一飛沖天最大的助力！"
+          }
+        ]
+      },
+      {
+        bg: "第七課_為生命找出口_簡報圖片/02.png",
+        chapter: "第一幕：峭壁上的幼鷹",
+        speaker: "👩‍🏫 導讀老師",
+        speakerId: "teacher",
+        text: "沒錯！不只是飛機，你看看峭壁上的老鷹，狂風在耳邊呼嘯，母鷹卻逼著幼鷹頂著強風拍打翅膀。如果幼鷹選擇躲在暖窩裡不出來，會發生什麼事呢？",
+        wind: true
+      },
+      {
+        bg: "第七課_為生命找出口_簡報圖片/02.png",
+        chapter: "第一幕：峭壁上的幼鷹",
+        speaker: "🎒 冒險學生・小勇",
+        speakerId: "player",
+        text: "如果一直貪圖安逸，雙翅就永遠長不出結實的肌肉，一旦離開巢穴就無法在大自然中生存了！這就是『好逸惡勞』的代價吧！",
+        wind: true
+      },
+      {
+        bg: "第七課_為生命找出口_簡報圖片/03.png",
+        chapter: "第二幕：庭院裡的小蜘蛛",
+        speaker: "👩‍🏫 導讀老師",
+        speakerId: "teacher",
+        text: "小勇領悟得真快！接下來，我們來到安靜的庭院。你看，這隻細小的小蜘蛛，在屋簷下吐絲織網。一陣風吹過、甚至我們打個噴嚏，蛛網就破了一個大洞！",
+        wind: false
+      },
+      {
+        bg: "第七課_為生命找出口_簡報圖片/03.png",
+        chapter: "第二幕：長跑健將的毅力",
+        speaker: "🎒 冒險學生・小勇",
+        speakerId: "player",
+        text: "天啊，辛辛苦苦織的網一瞬間破了，換成是我，可能早就放棄大哭了！小蜘蛛難道不覺得累嗎？",
+        wind: false
+      },
+      {
+        bg: "第七課_為生命找出口_簡報圖片/03.png",
+        chapter: "第二幕：破了又織的奇蹟",
+        speaker: "👩‍🏫 導讀老師",
+        speakerId: "teacher",
+        text: "牠即使精疲力竭，依然如同高空飛人般懸空吐絲，破了又織、破了又織！小勇，如果你今天在學校遇到一個大挫折，你會怎麼面對心中的那面『破網』？",
+        wind: false,
+        choices: [
+          {
+            key: "A",
+            text: "當場放棄，反正再怎麼做也會被破壞，不如躺平算了。",
+            scoreDelta: -10,
+            resilienceDelta: -15,
+            feedback: "如果放棄了，生命就被困在原地，找不到展翅向上的出口囉！"
+          },
+          {
+            key: "B",
+            text: "學小蜘蛛『破了又織』！擦乾眼淚深呼吸，重新梳理思路再來一次！",
+            scoreDelta: 25,
+            resilienceDelta: 15,
+            feedback: "太棒了！這正是劉俠筆下最動人的生命韌性！"
+          }
+        ]
+      },
+      {
+        bg: "第七課_為生命找出口_簡報圖片/04.png",
+        chapter: "第三幕：兩則故事比一比",
+        speaker: "👩‍🏫 導讀老師",
+        speakerId: "teacher",
+        text: "我們比一比這兩則故事：老鷹教我們在『逆境』中鍛鍊堅強力量；小蜘蛛教我們在『挫折』中持之以恆。作者先觀察身邊具體的事物，最後昇華出人生的深刻道理！",
+        wind: false
+      },
+      {
+        bg: "第七課_為生命找出口_簡報圖片/05.png",
+        chapter: "終章：為生命找出口",
+        speaker: "🎒 冒險學生・小勇",
+        speakerId: "player",
+        text: "老師，我懂了！原來人生中的不順利與難關，不是要擊倒我們，而是要讓我們像逆風中的飛機一樣，飛得更高、更穩！",
+        wind: false
+      },
+      {
+        bg: "第七課_為生命找出口_簡報圖片/05.png",
+        chapter: "終章：導師的寄語",
+        speaker: "👩‍🏫 導讀老師",
+        speakerId: "teacher",
+        text: "說得真好！只要心懷希望與堅持，每一次逆風，都是磨練生命的起點。把挫折當養分，你一定能為生命找到最耀眼的出口！",
+        wind: false
+      }
+    ];
+
+    let currentStep = 0;
+    let score = 0;
+    let resilience = 100;
+    let waitingForChoice = false;
+
+    // 音效合成
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playTone(freq, type = 'sine', duration = 0.12) {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + duration);
+    }
+
+    function soundChime() {
+      playTone(523, 'triangle', 0.1);
+      setTimeout(() => playTone(659, 'triangle', 0.12), 90);
+      setTimeout(() => playTone(784, 'triangle', 0.2), 200);
+    }
+
+    function soundClick() {
+      playTone(400, 'sine', 0.05);
+    }
+
+    function startGameStory() {
+      document.getElementById('overlay-screen').style.display = 'none';
+      currentStep = 0;
+      score = 0;
+      resilience = 100;
+      updateUI();
+      soundChime();
+    }
+
+    function updateUI() {
+      const step = storyScript[currentStep];
+
+      // 更新背景與章節
+      document.getElementById('scene-bg').style.backgroundImage = `url('${step.bg}')`;
+      document.getElementById('hud-chapter').innerText = step.chapter;
+
+      // 更新風特效
+      const windFx = document.getElementById('wind-fx');
+      if (step.wind) {
+        windFx.classList.add('wind-active');
+      } else {
+        windFx.classList.remove('wind-active');
+      }
+
+      // 更新講者與對話內文
+      document.getElementById('speaker-name').innerText = step.speaker;
+      typeWriterEffect(step.text);
+
+      // 檢查是否有決策選項
+      const choicePanel = document.getElementById('choice-panel');
+      const promptEl = document.getElementById('dialog-prompt');
+
+      if (step.choices && step.choices.length > 0) {
+        waitingForChoice = true;
+        promptEl.style.display = 'none';
+        choicePanel.style.display = 'grid';
+        choicePanel.innerHTML = '';
+
+        step.choices.forEach(ch => {
+          const btn = document.createElement('button');
+          btn.className = 'choice-btn';
+          btn.innerHTML = `
+            <span class="choice-key">${ch.key}</span>
+            <span>${ch.text}</span>
+          `;
+          btn.onclick = (e) => {
+            e.stopPropagation();
+            makeChoice(ch);
+          };
+          choicePanel.appendChild(btn);
+        });
+      } else {
+        waitingForChoice = false;
+        choicePanel.style.display = 'none';
+        promptEl.style.display = 'flex';
+      }
+
+      // 更新數值
+      document.getElementById('stat-score').innerText = score;
+      document.getElementById('stat-resilience').innerText = `${resilience}%`;
+    }
+
+    // 打字機特效
+    let typeTimer = null;
+    function typeWriterEffect(fullText) {
+      clearInterval(typeTimer);
+      const textEl = document.getElementById('dialog-text');
+      textEl.innerText = '';
+      let i = 0;
+      typeTimer = setInterval(() => {
+        if (i < fullText.length) {
+          textEl.innerText += fullText.charAt(i);
+          i++;
+        } else {
+          clearInterval(typeTimer);
+        }
+      }, 22);
+    }
+
+    function makeChoice(ch) {
+      soundClick();
+      score += ch.scoreDelta;
+      resilience = Math.min(100, Math.max(10, resilience + ch.resilienceDelta));
+      document.getElementById('stat-score').innerText = score;
+      document.getElementById('stat-resilience').innerText = `${resilience}%`;
+
+      // 彈出導師即時點評
+      const choicePanel = document.getElementById('choice-panel');
+      choicePanel.style.display = 'none';
+      waitingForChoice = false;
+
+      document.getElementById('speaker-name').innerText = "👩‍🏫 導讀老師（點評回饋）";
+      typeWriterEffect(ch.feedback);
+      document.getElementById('dialog-prompt').style.display = 'flex';
+
+      if (ch.scoreDelta > 0) {
+        soundChime();
+      }
+    }
+
+    function handleDialogClick() {
+      if (waitingForChoice) return;
+
+      soundClick();
+      currentStep++;
+      if (currentStep < storyScript.length) {
+        updateUI();
+      } else {
+        showFinalEnding();
+      }
+    }
+
+    function showFinalEnding() {
+      const overlay = document.getElementById('overlay-screen');
+      overlay.style.display = 'flex';
+      overlay.innerHTML = `
+        <div style="font-size: 5rem; margin-bottom: 16px;">🏆</div>
+        <h1 class="overlay-title">探險圓滿完成！</h1>
+        <p class="overlay-desc">
+          恭喜你與小勇一起走過了峭壁逆風與小蜘蛛破網的試煉！<br>
+          你的最終領悟值：<b style="color:#fbbf24; font-size:1.6rem;">${score}</b> 分｜生命韌性：<b style="color:#f43f5e; font-size:1.6rem;">${resilience}%</b><br><br>
+          <span style="color:#93c5fd; font-style:italic;">「把生活中的每一次挫折，當成迎向高空的強風與起點！」</span>
+        </p>
+        <button class="btn-action" onclick="startGameStory()">
+          🔄 再次踏上冒險
+        </button>
+      `;
+    }
+  </script>
+</body>
+</html>
